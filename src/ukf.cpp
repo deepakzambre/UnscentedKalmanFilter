@@ -20,8 +20,6 @@ using std::vector;
  */
 UKF::UKF()
 {
-  LOG("starting initialization");
-
   // if this is false, laser measurements will be ignored (except during init)
   use_laser_ = true;
 
@@ -30,20 +28,6 @@ UKF::UKF()
 
   // initial state vector
   x_ = VectorXd(5);
-
-  // initial covariance matrix
-  P_ = MatrixXd(5, 5);
-  P_ <<     0.0043,   -0.0013,    0.0030,   -0.0022,   -0.0020,
-          -0.0013,    0.0077,    0.0011,    0.0071,    0.0060,
-           0.0030,    0.0011,    0.0054,    0.0007,    0.0008,
-          -0.0022,    0.0071,    0.0007,    0.0098,    0.0100,
-          -0.0020,    0.0060,    0.0008,    0.0100,    0.0123;
-
-  // Process noise standard deviation longitudinal acceleration in m/s^2
-  std_a_ = 2; //9; //30;
-
-  // Process noise standard deviation yaw acceleration in rad/s^2
-  std_yawdd_ = 3.14 / 2; //30;
 
   //DO NOT MODIFY measurement noise values below these are provided by the sensor manufacturer.
   // Laser measurement noise standard deviation position1 in m
@@ -62,13 +46,6 @@ UKF::UKF()
   std_radrd_ = 0.3;
   //DO NOT MODIFY measurement noise values above these are provided by the sensor manufacturer.
 
-  /**
-     TODO:
-
-     Complete the initialization. See ukf.h for other member properties.
-
-     Hint: one or more values initialized above might be wildly off...
-  */
   ///* State dimension
   n_x_ = 5;
 
@@ -83,6 +60,15 @@ UKF::UKF()
 
   ///* time when the state is true, in us
   time_us_ = 0;
+
+  // Process noise standard deviation longitudinal acceleration in m/s^2
+  std_a_ = 0.4;
+
+  // Process noise standard deviation yaw acceleration in rad/s^2
+  std_yawdd_ = 0.3;
+
+  // initial covariance matrix
+  P_ = MatrixXd::Identity(n_x_, n_x_);
 
   ///* Weights of sigma points
   // set weights
@@ -121,8 +107,6 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package)
 
     time_us_ = meas_package.timestamp_;
     is_initialized_ = true;
-
-    LOG("initialization complete");
 
     return;
   }
@@ -207,9 +191,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package)
           0, std_radphi_*std_radphi_;
   S = S + R;
 
-  // log("z_pred: ", std::endl, z_pred, std::endl);
-  // log("S: ", std::endl, S, std::endl);
-
   UpdateState1(meas_package.raw_measurements_, z_pred, S, Zsig);
 }
 
@@ -242,9 +223,6 @@ void UKF::UpdateState1(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
   //update state mean and covariance matrix
   x_ = x_ + K * z_diff;
   P_ = P_ - K*S*K.transpose();
-
-  // log("Updated state x: ", std::endl, x, std::endl);
-  // log("Updated state covariance P: ", std::endl, P, std::endl);
 }
 
 /**
@@ -307,9 +285,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
           0, 0,std_radrd_*std_radrd_;
   S = S + R;
 
-  // log("z_pred: ", std::endl, z_pred, std::endl);
-  // log("S: ", std::endl, S, std::endl);
-
   UpdateState2(meas_package.raw_measurements_, z_pred, S, Zsig);
 }
 
@@ -353,9 +328,6 @@ void UKF::UpdateState2(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
   //update state mean and covariance matrix
   x_ = x_ + K * z_diff;
   P_ = P_ - K*S*K.transpose();
-
-  // log("Updated state x: ", std::endl, x, std::endl);
-  // log("Updated state covariance P: ", std::endl, P, std::endl);
 }
 
 void UKF::GetAugmentedSigmaPoints(MatrixXd* Xsig_out)
@@ -392,8 +364,6 @@ void UKF::GetAugmentedSigmaPoints(MatrixXd* Xsig_out)
     Xsig_aug.col(i+1)       = x_aug + sqrt(lambda_+n_aug_) * L.col(i);
     Xsig_aug.col(i+1+n_aug_) = x_aug - sqrt(lambda_+n_aug_) * L.col(i);
   }
-
-  // log("Xsig_aug = ", std::endl, Xsig_aug, std::endl);
 
   //write result
   *Xsig_out = Xsig_aug;
@@ -449,8 +419,6 @@ void UKF::PerformSigmaPointPrediction(MatrixXd &Xsig_aug, double delta_t, Matrix
     Xsig_pred(4,i) = yawd_p;
   }
 
-  // log("Xsig_pred = ", std::endl, Xsig_pred, std::endl);
-
   //write result
   *Xsig_out = Xsig_pred;
 }
@@ -484,11 +452,6 @@ void UKF::PredictMeanAndCovariance(MatrixXd &Xsig_pred, VectorXd* x_out, MatrixX
 
     P = P + weights_(i) * x_diff * x_diff.transpose() ;
   }
-
-  // log("Predicted state", std::endl);
-  // log(x, std::endl);
-  // log("Predicted covariance matrix", std::endl);
-  // log(P, std::endl);
 
   //write result
   *x_out = x;
