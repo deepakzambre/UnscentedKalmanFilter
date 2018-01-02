@@ -67,6 +67,9 @@ public:
   ///* Sigma point spreading parameter
   double lambda_;
 
+  MatrixXd R_rad_;
+
+  MatrixXd R_las_;
 
   /**
    * Constructor
@@ -106,8 +109,6 @@ public:
   void GetAugmentedSigmaPoints(MatrixXd* Xsig_out);
   void PerformSigmaPointPrediction(MatrixXd &Xsig_aug, double delta_t, MatrixXd* Xsig_out);
   void PredictMeanAndCovariance(MatrixXd &Xsig_pred, VectorXd* x_out, MatrixXd* P_out);
-  void UpdateState1(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsig);
-  void UpdateState2(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsig);
 };
 
 #endif /* UKF_H */

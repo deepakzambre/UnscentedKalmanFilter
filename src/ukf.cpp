@@ -55,9 +55,6 @@ UKF::UKF()
   ///* Sigma point spreading parameter
   lambda_ = 3 - n_aug_;
 
-  // ///* predicted sigma points matrix
-  // MatrixXd Xsig_pred_;
-
   ///* time when the state is true, in us
   time_us_ = 0;
 
@@ -69,6 +66,15 @@ UKF::UKF()
 
   // initial covariance matrix
   P_ = MatrixXd::Identity(n_x_, n_x_);
+
+  R_las_ = MatrixXd(2, 2);
+  R_las_ <<  std_laspx_ * std_laspx_, 0,
+             0, std_laspy_ * std_laspy_;
+
+  R_rad_ = MatrixXd(3, 3);
+  R_rad_ << std_radr_*std_radr_, 0, 0,
+            0, std_radphi_*std_radphi_, 0,
+            0, 0,std_radrd_*std_radrd_;
 
   ///* Weights of sigma points
   // set weights
@@ -91,7 +97,8 @@ UKF::~UKF()
  * @param {MeasurementPackage} meas_package The latest measurement data of
  * either radar or laser.
  */
-void UKF::ProcessMeasurement(MeasurementPackage meas_package)
+void
+UKF::ProcessMeasurement(MeasurementPackage meas_package)
 {
   if (!is_initialized_)
   {
@@ -130,7 +137,8 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package)
  * @param {double} delta_t the change in time (in seconds) between the last
  * measurement and this one.
  */
-void UKF::Prediction(double delta_t)
+void
+UKF::Prediction(double delta_t)
 {
   MatrixXd Xsig_aug = MatrixXd(n_aug_, 2 * n_aug_ + 1);
   GetAugmentedSigmaPoints(&Xsig_aug);
@@ -186,17 +194,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package)
   }
 
   //add measurement noise covariance matrix
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R <<    std_laspx_ * std_laspx_, 0,
-          0, std_laspy_ * std_laspy_;
-  S = S + R;
+  S = S + R_las_;
 
-  UpdateState1(meas_package.raw_measurements_, z_pred, S, Zsig);
-}
-
-void UKF::UpdateState1(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsig)
-{
-  int n_z = 2; //int(z.size);
+  // update state
 
   //create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z);
@@ -218,7 +218,7 @@ void UKF::UpdateState1(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
   MatrixXd K = Tc * S.inverse();
 
   //residual
-  VectorXd z_diff = z - z_pred;
+  VectorXd z_diff = meas_package.raw_measurements_ - z_pred;
 
   //update state mean and covariance matrix
   x_ = x_ + K * z_diff;
@@ -229,7 +229,8 @@ void UKF::UpdateState1(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
  * Updates the state and the state covariance matrix using a radar measurement.
  * @param {MeasurementPackage} meas_package
  */
-void UKF::UpdateRadar(MeasurementPackage meas_package)
+void
+UKF::UpdateRadar(MeasurementPackage meas_package)
 {
   //set measurement dimension, radar can measure r, phi, and r_dot
   int n_z = 3;
@@ -279,19 +280,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package)
   }
 
   //add measurement noise covariance matrix
-  MatrixXd R = MatrixXd(n_z, n_z);
-  R <<    std_radr_*std_radr_, 0, 0,
-          0, std_radphi_*std_radphi_, 0,
-          0, 0,std_radrd_*std_radrd_;
-  S = S + R;
+  S = S + R_rad_;
 
-  UpdateState2(meas_package.raw_measurements_, z_pred, S, Zsig);
-}
-
-void UKF::UpdateState2(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsig)
-{
-  //set measurement dimension, radar can measure r, phi, and r_dot
-  int n_z = 3; //z.size;
+  // update state
 
   //create matrix for cross correlation Tc
   MatrixXd Tc = MatrixXd(n_x_, n_z);
@@ -319,7 +310,7 @@ void UKF::UpdateState2(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
   MatrixXd K = Tc * S.inverse();
 
   //residual
-  VectorXd z_diff = z - z_pred;
+  VectorXd z_diff = meas_package.raw_measurements_ - z_pred;
 
   //angle normalization
   while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
@@ -330,7 +321,8 @@ void UKF::UpdateState2(VectorXd &z, VectorXd &z_pred, MatrixXd &S, MatrixXd &Zsi
   P_ = P_ - K*S*K.transpose();
 }
 
-void UKF::GetAugmentedSigmaPoints(MatrixXd* Xsig_out)
+void
+UKF::GetAugmentedSigmaPoints(MatrixXd* Xsig_out)
 {
   //create augmented mean vector
   VectorXd x_aug = VectorXd(n_aug_);
@@ -369,7 +361,11 @@ void UKF::GetAugmentedSigmaPoints(MatrixXd* Xsig_out)
   *Xsig_out = Xsig_aug;
 }
 
-void UKF::PerformSigmaPointPrediction(MatrixXd &Xsig_aug, double delta_t, MatrixXd* Xsig_out)
+void
+UKF::PerformSigmaPointPrediction(
+  MatrixXd &Xsig_aug,
+  double delta_t,
+  MatrixXd* Xsig_out)
 {
   //create matrix with predicted sigma points as columns
   MatrixXd Xsig_pred = MatrixXd(n_x_, 2 * n_aug_ + 1);
@@ -423,7 +419,11 @@ void UKF::PerformSigmaPointPrediction(MatrixXd &Xsig_aug, double delta_t, Matrix
   *Xsig_out = Xsig_pred;
 }
 
-void UKF::PredictMeanAndCovariance(MatrixXd &Xsig_pred, VectorXd* x_out, MatrixXd* P_out)
+void
+UKF::PredictMeanAndCovariance(
+  MatrixXd &Xsig_pred,
+  VectorXd* x_out,
+  MatrixXd* P_out)
 {
   //create vector for predicted state
   VectorXd x = VectorXd(n_x_);
