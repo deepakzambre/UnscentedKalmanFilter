@@ -187,8 +187,8 @@ void UKF::UpdateLidar(MeasurementPackage meas_package)
 
   //add measurement noise covariance matrix
   MatrixXd R = MatrixXd(n_z, n_z);
-  R <<    std_radr_*std_radr_, 0,
-          0, std_radphi_*std_radphi_;
+  R <<    std_laspx_ * std_laspx_, 0,
+          0, std_laspy_ * std_laspy_;
   S = S + R;
 
   UpdateState1(meas_package.raw_measurements_, z_pred, S, Zsig);
